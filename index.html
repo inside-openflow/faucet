@@ -103,6 +103,10 @@
 
 <p><code># ryu-manager --verbose &lt;Location_Path&gt;/ryu_faucet/faucet.py</code></p>
 
+<p>Alternatively, if OF Controller is using a non-default port of 6633, for example 6653, then:</p>
+
+<p><code># ryu-manager --verbose  --ofp-tcp-listen-port 6653 &lt;Location_Path&gt;/ryu_faucet/faucet.py</code></p>
+
 <p>On MacOS X, for example, one would run this as:</p>
 
 <p><code>#  ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/faucet.py</code></p>
@@ -120,13 +124,23 @@
 <h1>
 <a id="testing" class="anchor" href="#testing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Testing</h1>
 
-<p>Faucet has been tested against:</p>
+<p>Faucet has been tested against the following switches:</p>
 
 <pre><code>1. Open vSwitch v2.1+
 2. Allied Telesis x510
 </code></pre>
 
 <p>On the Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.</p>
+
+<h1></h1>
+
+<h1>
+<a id="buying-commerical-switches-supporting-ryu-faucet" class="anchor" href="#buying-commerical-switches-supporting-ryu-faucet" aria-hidden="true"><span class="octicon octicon-link"></span></a>Buying Commerical Switches supporting ryu-faucet</h1>
+
+<h2>
+<a id="allied-telesis" class="anchor" href="#allied-telesis" aria-hidden="true"><span class="octicon octicon-link"></span></a>Allied Telesis</h2>
+
+<p>Allied Telesis sells their products via distributors and resellers. To order in USA call <code>ProVantage &lt;http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm&gt;</code>.  To find a sales office near you, visit <code>Allied Telesis &lt;http://www.AlliedTelesis.com&gt;</code></p>
 
 <h2>
 <a id="running-with-another-controller" class="anchor" href="#running-with-another-controller" aria-hidden="true"><span class="octicon octicon-link"></span></a>Running with another controller</h2>
