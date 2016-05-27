@@ -2,7 +2,7 @@
 <html lang="en-us">
   <head>
     <meta charset="UTF-8">
-    <title>Faucet by openflowsdn</title>
+    <title>Faucet by onfsdn</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
@@ -13,14 +13,14 @@
     <section class="page-header">
       <h1 class="project-name">Faucet</h1>
       <h2 class="project-tagline"></h2>
-      <a href="https://github.com/openflowsdn/faucet" class="btn">View on GitHub</a>
-      <a href="https://github.com/openflowsdn/faucet/zipball/master" class="btn">Download .zip</a>
-      <a href="https://github.com/openflowsdn/faucet/tarball/master" class="btn">Download .tar.gz</a>
+      <a href="https://github.com/onfsdn/faucet" class="btn">View on GitHub</a>
+      <a href="https://github.com/onfsdn/faucet/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/onfsdn/faucet/tarball/master" class="btn">Download .tar.gz</a>
     </section>
 
     <section class="main-content">
-      <p>:version: 0.28a
-<img class="emoji" title=":copyright:" alt=":copyright:" src="https://assets-cdn.github.com/images/icons/emoji/unicode/00a9.png" height="20" width="20" align="absmiddle"> 2015 <code>REANNZ &lt;http://www.reannz.co.nz/&gt;</code>_.  All Rights Reserved.</p>
+      <p>:version: 1.0
+<g-emoji alias="copyright" fallback-src="https://assets-cdn.github.com/images/icons/emoji/unicode/00a9.png">©️</g-emoji> 2015 <code>REANNZ &lt;http://www.reannz.co.nz/&gt;</code>_.  All Rights Reserved.</p>
 
 <p>.. meta::
    :keywords: Openflow, Ryu, Faucet, VLAN, SDN</p>
@@ -28,25 +28,79 @@
 <h1></h1>
 
 <h1>
-<a id="faucet" class="anchor" href="#faucet" aria-hidden="true"><span class="octicon octicon-link"></span></a>Faucet</h1>
+<a id="faucet" class="anchor" href="#faucet" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Faucet</h1>
 
-<p>Faucet is an Openflow controller for a layer 2 switch based on OpenvApour's Valve. It handles MAC learning and supports VLANs.  It is developed as an application for the <code>Ryu Open Flow Controller &lt;http://osrg.github.io/ryu/&gt;</code>_
+<p>Faucet is an Openflow controller for a layer 2 switch based on OpenvApour's Valve. It handles MAC learning and supports VLANs and ACLs.  It is developed as an application for the <code>Ryu Open Flow Controller &lt;http://osrg.github.io/ryu/&gt;</code>_
 .</p>
 
 <p>It supports:</p>
 
 <ul>
 <li>OpenFlow v1.3</li>
-<li>Multiple datapaths</li>
+<li>Multiple datapaths (via multiple processes)</li>
 <li>Mixed tagged/untagged ports</li>
 <li>Port statistics</li>
-<li>Coexisting with other OpenFlow controllers</li>
+<li>ACL support: Rules are added in the order specified. The rule language supports anything the Ryu OpenFlow protocol parser supports (q.v. ofctl to_match()).</li>
+<li>Control unicast flooding by port and by VLAN</li>
+<li>support for IPv4 and IPv6 static routes on both tagged and untagged VLANs</li>
+<li>Integrated support for InfluxDB/Grafana</li>
 </ul>
 
 <h1></h1>
 
 <h1>
-<a id="configuration" class="anchor" href="#configuration" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configuration</h1>
+<a id="feature-details" class="anchor" href="#feature-details" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Feature Details</h1>
+
+<h2>
+<a id="acl-support" class="anchor" href="#acl-support" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>ACL Support</h2>
+
+<p>Rules are added in the order specified. The rule language supports anything the Ryu OpenFlow protocol parser supports (q.v. ofctl to_match()).
+In this example,configure an ACL on port 1, default deny, that passes an IPv4 subnet and ARP.
+Following config applies an input ACL to port 1.</p>
+
+<p>Supports any ACL rule that <a href="https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py">https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py</a> to_match() supports.
+::</p>
+
+<p>1:
+        native_vlan: 2040
+        acl_in: 1</p>
+
+<p>vlans:
+      2040:
+          name: "dev VLAN"</p>
+
+<p>acls:
+      1:
+          - rule:
+              nw_dst: "172.0.0.0/8"
+              dl_type: 0x800
+              allow: 1</p>
+
+<pre><code>      - rule:
+          dl_type: 0x0806
+          allow: 1
+
+      - rule:
+          nw_dst: "10.0.0.0/16"
+          dl_type: 0x800
+          allow: 0
+
+      - rule:
+</code></pre>
+
+<h2>
+<a id="unicast-flood" class="anchor" href="#unicast-flood" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Unicast Flood</h2>
+
+<p>The default is to flood unknown unicast packets (of course). You might not want unicast flooding on a port for security reasons.</p>
+
+<p>If you add unicast_flood: False to a port, then that port will never get unknown destinations flooded to it. So hosts on that port will have to say something to get learned (or someone will need to ND/ARP for it). Broadcasts and Ethernet multicasts are still flooded to that port (so of course ND and ARP work just fine).</p>
+
+<p>You can also add unicast_flood: False to a VLAN, which will override all the ports. On my untrusted VLAN, the default gateway has permanent_learn enabled, and unicast flooding disabled.</p>
+
+<h1></h1>
+
+<h1>
+<a id="configuration" class="anchor" href="#configuration" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Configuration</h1>
 
 <p>Faucet is configured with a YAML-based configuration file. A sample configuration file is supplied in <code>faucet.yaml</code>.</p>
 
@@ -57,16 +111,27 @@
 <h1></h1>
 
 <h1>
-<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation</h1>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installation</h1>
 
-<p>You have run this as <code>root</code> or use <code>sudo</code></p>
+<p>Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively. </p>
 
-<p><code># pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.28a.tar.gz</code></p>
-
-<p><code># pip show ryu-faucet</code></p>
+<p>You have run this as <code>root</code> or use <code>sudo</code>
+::
+  # pip install <a href="https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.30.tar.gz">https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.30.tar.gz</a>
+  # pip show ryu-faucet</p>
 
 <h2>
-<a id="uninstall" class="anchor" href="#uninstall" aria-hidden="true"><span class="octicon octicon-link"></span></a>Uninstall</h2>
+<a id="optional-install-for-network-monitoring-dashboard" class="anchor" href="#optional-install-for-network-monitoring-dashboard" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Optional Install for Network Monitoring Dashboard</h2>
+
+<ul>
+<li>To setup InfluxDB v0.11 - <a href="https://docs.influxdata.com/influxdb/v0.10/introduction/getting_started/">https://docs.influxdata.com/influxdb/v0.10/introduction/getting_started/</a>
+</li>
+<li>To setup Grafana v2.6 - <a href="http://docs.grafana.org/installation/">http://docs.grafana.org/installation/</a>
+</li>
+</ul>
+
+<h2>
+<a id="uninstall" class="anchor" href="#uninstall" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Uninstall</h2>
 
 <p>To Uninstall the package</p>
 
@@ -75,47 +140,91 @@
 <h1></h1>
 
 <h1>
-<a id="deployment" class="anchor" href="#deployment" aria-hidden="true"><span class="octicon octicon-link"></span></a>Deployment</h1>
+<a id="deployment" class="anchor" href="#deployment" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Deployment</h1>
 
 <p>.. image:: src/docs/faucet_deployment.png</p>
+
+<h2>
+<a id="deployment-at-open-networking-foundation" class="anchor" href="#deployment-at-open-networking-foundation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Deployment at Open Networking Foundation</h2>
+
+<p>.. image:: src/docs/images/ONF_Faucet_deploy1.png</p>
 
 <h1></h1>
 
 <h1>
-<a id="running" class="anchor" href="#running" aria-hidden="true"><span class="octicon octicon-link"></span></a>Running</h1>
+<a id="openflow-pipeline" class="anchor" href="#openflow-pipeline" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>OpenFlow Pipeline</h1>
+
+<p>::</p>
+
+<pre><code>PACKETS IN       +------------------------+  +-------------------------+
+  |              |                        |  |                         |
+  |              |                        V  |                         V
+  |       +------+--+   +---------+   +----------+   +---------+   +---------+
+  |       |0:VLAN   |   |1:ACL    |   |2:ETH_SRC |   |3:ETH_DST|   |4:FLOOD  |
+  +------&gt;|         +--&gt;|         +--&gt;+          +--&gt;+         |--&gt;+         |
+          |         |   |         |   |          |   |         |   |         |
+          |         |   |         |   |          |   |         |   |         |
+          |         |   |         |   |          |   |         |   |         |
+          |         |   |         |   |          |   |         |   |         |
+          |         |   |         |   |          |   |         |   |         |
+          |         |   |         |   |          |   |         |   |         |
+          |         |   |         |   |          |   |         |   |         |
+          +---------+   +---------+   +-----+----+   +---+-----+   +----+----+
+                                            |            |              |
+                                            |            |              |
+                                            V            |              V
+                                      +----------+       +-------&gt;PACKETS OUT
+                                      |CONTROL   |
+                                      |PLANE     |
+                                      |          |
+                                      |          |
+                                      |          |
+                                      |          |
+                                      |          |
+                                      |          |
+                                      |          |
+                                      +----------+
+</code></pre>
+
+<h1></h1>
+
+<h1>
+<a id="running" class="anchor" href="#running" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Running</h1>
 
 <p>Note: On your system, depending on how Python is installed, you may have to install some additional packages to run faucet.</p>
 
-<p>Run with <code>ryu-manager</code> (uses <code>/etc/ryu/faucet/faucet.yaml</code> as configuration by default):</p>
+<p>Run with <code>ryu-manager</code> (uses <code>/etc/ryu/faucet/faucet.yaml</code> as configuration by default):
+::</p>
 
-<pre><code>``# export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml``
-
-``# export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf``
-
-``# export FAUCET_LOG_DIR=/var/log/ryu``
-
-``# $EDITOR /etc/ryu/faucet/faucet.yaml``
-
-``# ryu-manager --verbose faucet.py``
+<pre><code># export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
+# export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
+# export FAUCET_LOG=/var/log/faucet/faucet.log
+# export FAUCET_EXCEPTION_LOG=/var/log/faucet/faucet_exception.log
+# export GAUGE_LOG=/var/log/faucet/gauge_exception.log
+# export GAUGE_EXCEPTION_LOG=/var/log/faucet/gauge_exception.log
+# $EDITOR /etc/ryu/faucet/faucet.yaml
+# ryu-manager --verbose faucet.py
 </code></pre>
 
-<p>To find the location of <code>faucet.py</code>, run </p>
+<p>To find the location of <code>faucet.py</code>, run</p>
 
 <p><code># pip show ryu-faucet</code> to get Location path.  Then run:</p>
 
-<p><code># ryu-manager --verbose &lt;Location_Path&gt;/ryu_faucet/org/openflowsdn/faucet/faucet.py</code></p>
+<p><code># ryu-manager --verbose &lt;Location_Path&gt;/ryu_faucet/org/onfsdn/faucet/faucet.py</code></p>
 
 <p>Alternatively, if OF Controller is using a non-default port of 6633, for example 6653, then:</p>
 
-<p><code># ryu-manager --verbose  --ofp-tcp-listen-port 6653 &lt;Location_Path&gt;/ryu_faucet/org/openflowsdn/faucet/faucet.py</code></p>
+<p><code># ryu-manager --verbose  --ofp-tcp-listen-port 6653 &lt;Location_Path&gt;/ryu_faucet/org/onfsdn/faucet/faucet.py</code></p>
 
 <p>On MacOS X, for example, one would run this as:</p>
 
-<p><code>#  ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/org/openflowsdn/faucet/faucet.py</code></p>
+<p><code>#  ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/org/onfsdn/faucet/faucet.py</code></p>
 
 <p>To specify a different configuration file set the <code>FAUCET_CONFIG</code> environment variable.</p>
 
-<p>Faucet will log to <code>/var/log/ryu/faucet/</code> by default, this can be changed with the <code>FAUCET_LOG_DIR</code> environment variable.</p>
+<p>Faucet will log to <code>/var/log/faucet/faucet.log</code> and <code>/var/log/faucet/faucet_exception.log</code> by default, this can be changed with the <code>FAUCET_LOG</code> and <code>FAUCET_EXCEPTION_LOG</code> environment variables.</p>
+
+<p>Gauge will log to <code>/var/log/faucet/gauge.log</code> and <code>/var/log/faucet/gauge_exception.log</code> by default, this can be changed with the <code>GAUGE_LOG</code> and <code>GAUGE_EXCEPTION_LOG</code> environment variables.</p>
 
 <p>To tell Faucet to reload its configuration file after you've changed it, simply send it a <code>SIGHUP</code>:</p>
 
@@ -124,44 +233,68 @@
 <h1></h1>
 
 <h1>
-<a id="testing" class="anchor" href="#testing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Testing</h1>
+<a id="testing" class="anchor" href="#testing" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Testing</h1>
 
-<p>Faucet has been tested against the following switches:</p>
+<h2>
+<a id="before-issuing-a-pull-request" class="anchor" href="#before-issuing-a-pull-request" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Before issuing a Pull-Request</h2>
+
+<p>Run the tests to make sure everything works!
+Mininet test actually spins up virtual hosts and a switch, and a test FAUCET controller, and checks connectivity between all the hosts given a test config.  If you send a patch, this mininet test must pass.::</p>
+
+<pre><code># git clone https://github.com/onfsdn/faucet
+# cd faucet/tests
+(As namespace, etc needs to be setup, run the next command as root)
+# sudo ./faucet_mininet_test.py
+# ./test_config.py
+</code></pre>
+
+<h2>
+<a id="working-with-real-hardware" class="anchor" href="#working-with-real-hardware" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Working with Real Hardware</h2>
+
+<p>If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in src/ryu_faucet/org/onfsdn/faucet/valve.py:valve_in_match().</p>
+
+<p>Faucet has been tested against the following switches:
+(Hint: look at src/ryu_faucet/org/onfsdn/faucet/dp.py to add your switch)</p>
 
 <pre><code>1. Open vSwitch v2.1+ - Open Source available at http://www.OpenVSwitch.Org
 2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
-3. Allied Telesis x510
-4. Pica8
+3. Allied Telesis x510 and x930 series
+4. NoviFlow 1248
+5. Zodiac FX
 </code></pre>
 
-<p>On the Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.</p>
+<p>Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently.</p>
 
 <h1></h1>
 
 <h1>
-<a id="buying-commerical-switches-supporting-ryu-faucet" class="anchor" href="#buying-commerical-switches-supporting-ryu-faucet" aria-hidden="true"><span class="octicon octicon-link"></span></a>Buying Commerical Switches supporting ryu-faucet</h1>
+<a id="buying-and-running-commerical-switches-supporting-ryu-faucet" class="anchor" href="#buying-and-running-commerical-switches-supporting-ryu-faucet" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Buying and running commerical switches supporting ryu-faucet</h1>
 
 <h2>
-<a id="allied-telesis" class="anchor" href="#allied-telesis" aria-hidden="true"><span class="octicon octicon-link"></span></a>Allied Telesis</h2>
+<a id="allied-telesis" class="anchor" href="#allied-telesis" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Allied Telesis</h2>
 
 <p><code>Allied Telesis &lt;http://www.alliedtelesis.com/sdn</code> sells their products via distributors and resellers. To order in USA call <code>ProVantage &lt;http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm&gt;</code>.  To find a sales office near you, visit <code>Allied Telesis &lt;http://www.AlliedTelesis.com&gt;</code></p>
 
+<ul>
+<li>On Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.</li>
+</ul>
+
 <h2>
-<a id="pica8" class="anchor" href="#pica8" aria-hidden="true"><span class="octicon octicon-link"></span></a>Pica8</h2>
+<a id="noviflow" class="anchor" href="#noviflow" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>NoviFlow</h2>
 
-<p><code>Pica8 &lt;http://www.pica8.com/products/pre-loaded-switches&gt;</code> provides white box network switches which work with Ryu/Faucet controller.  To order Pica8 switches, please refer to <code>buy page &lt;http://www.pica8.com/partners/where-to-buy&gt;</code></p>
+<p><code>NoviFlow &lt;http://noviflow.com/&gt;</code></p>
 
 <h2>
-<a id="running-with-another-controller" class="anchor" href="#running-with-another-controller" aria-hidden="true"><span class="octicon octicon-link"></span></a>Running with another controller</h2>
+<a id="northbound-networks" class="anchor" href="#northbound-networks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>NorthBound Networks</h2>
 
-<p>It is possible to use Faucet to add layer 2 features to another OpenFlow controller by running Faucet in parallel with that controller. Faucet will only ever modify/remove OpenFlow rules added by itself (identified by a special OpenFlow cookie unique to Faucet), this means the rules installed by the other controller/application will be left untouched.</p>
+<p><code>NorthBound Networks &lt;http://northboundnetworks.com/&gt;</code></p>
 
-<p>Simply add Faucet as a second primary OpenFlow controller to your datapath element. You will also probably need to tweak the OpenFlow priority values Faucet uses by modifying <code>priority_offset</code> in the configuration file so that rules installed by the other controller don't override those installed by Faucet.</p>
+<p>FAUCET supports the Zodiac FX as of v0.60 firmware.</p>
 
 <h1></h1>
 
 <h1>
-<a id="gauge" class="anchor" href="#gauge" aria-hidden="true"><span class="octicon octicon-link"></span></a>Gauge</h1>
+<a id="gauge" class="anchor" href="#gauge" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Gauge</h1>
 
 <p>Gauge is the monitoring application. It polls each port for statistics and periodically dumps the flow table for statistics.</p>
 
@@ -175,21 +308,40 @@
 
 <p><code>$ ryu-manager gauge.py</code></p>
 
+<h2>
+<a id="screenshots" class="anchor" href="#screenshots" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Screenshots</h2>
+
+<p>.. image:: src/docs/images/faucet-snapshot1.png
+.. image:: src/docs/images/faucet-snapshot2.png
+.. image:: src/docs/images/faucet-snapshot3.png</p>
+
 <h1></h1>
 
 <h1>
-<a id="support" class="anchor" href="#support" aria-hidden="true"><span class="octicon octicon-link"></span></a>Support</h1>
+<a id="support" class="anchor" href="#support" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Support</h1>
 
-<p>Mailing list info goes here</p>
+<p>If you have any technical questions, problems or suggestions regarding Faucet please send them to <code>faucet-dev@OpenflowSDN.Org &lt;mailto:faucet-dev@openflowsdn.org&gt;</code>.  Mailing list archives are available <code>here &lt;https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev&gt;</code>.</p>
+
+<p>To create a issue, use <code>Github issues &lt;https://github.com/onfsdn/faucet/issues&gt;</code></p>
 
       <footer class="site-footer">
-        <span class="site-footer-owner"><a href="https://github.com/openflowsdn/faucet">Faucet</a> is maintained by <a href="https://github.com/openflowsdn">openflowsdn</a>.</span>
+        <span class="site-footer-owner"><a href="https://github.com/onfsdn/faucet">Faucet</a> is maintained by <a href="https://github.com/onfsdn">onfsdn</a>.</span>
 
         <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
       </footer>
 
     </section>
 
-  
+            <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-78449055-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
   </body>
 </html>
